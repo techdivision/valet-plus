@@ -462,7 +462,7 @@ class PhpFpm
         }
 
         // If the current php is not 7.1, link 7.1.
-        info('Installing and linking new PHP homebrew/core version.');
+        info('Installing and linking new valet-php version.');
         output($this->cli->runAsUser('brew uninstall ' . self::SUPPORTED_PHP_FORMULAE[self::PHP_V71_VERSION]));
         output($this->cli->runAsUser('brew install ' . self::SUPPORTED_PHP_FORMULAE[self::PHP_V71_VERSION]));
         output($this->cli->runAsUser('brew unlink ' . self::SUPPORTED_PHP_FORMULAE[self::PHP_V71_VERSION]));
