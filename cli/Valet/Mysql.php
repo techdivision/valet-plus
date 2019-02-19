@@ -73,6 +73,10 @@ class Mysql
             $this->brew->installOrFail('mysql-utilities');
         }
 
+        if ($this->installedVersion()) {
+            $this->brew->link($type, true, true);
+        }
+
         $this->stop();
         $this->installConfiguration($type);
         $this->restart();
@@ -183,7 +187,7 @@ class Mysql
     public function setRootPassword($oldPwd = '', $newPwd = self::MYSQL_ROOT_PASSWORD)
     {
         $success = true;
-        $this->cli->runAsUser("/usr/local/opt/mysql@5.7/bin/mysqladmin -u root --password='".$oldPwd."' password ".$newPwd, function() use (&$success) {
+        $this->cli->runAsUser("mysqladmin -u root --password='".$oldPwd."' password ".$newPwd, function() use (&$success) {
             warning('Setting password for root user failed. ');
             $success = false;
         });
