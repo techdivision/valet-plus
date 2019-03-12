@@ -67,7 +67,12 @@ class PhpFpm
             $this->brew->ensureInstalled($this->getFormulaName(self::PHP_V71_VERSION));
         }
 
-        $version = $this->linkedPhp();
+        try {
+            $version = $this->linkedPhp();
+        } catch (DomainException $e) {
+            info("[" . $this->getFormulaName(self::PHP_V71_VERSION) . "] Linking");
+            output($this->cli->runAsUser('brew link ' . $this->getFormulaName(self::PHP_V71_VERSION) . ' --force --overwrite'));
+        }
 
         $this->files->ensureDirExists('/usr/local/var/log', user());
         $this->updateConfiguration();
