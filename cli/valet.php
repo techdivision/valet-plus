@@ -70,6 +70,9 @@ $app->command('fix [--reinstall]', function ($reinstall) {
         warning('You have an .my.cnf file in your home directory. This can affect the mysql installation negatively.');
     }
 
+    info('[openssl] Relinking');
+    $this->cli->passthru('sudo ln -fs /usr/local/etc/oenssl@1.1 /usr/local/etc/openssl');
+
     PhpFpm::fix($reinstall);
     Pecl::fix();
 })->descriptions('Fixes common installation problems that prevent Valet+ from working');

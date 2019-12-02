@@ -176,6 +176,9 @@ class PhpFpm
         info('[libjpeg] Relinking');
         $this->cli->passthru('sudo ln -fs /usr/local/Cellar/jpeg/8d/lib/libjpeg.8.dylib /usr/local/opt/jpeg/lib/libjpeg.8.dylib');
 
+        info('[openssl] Relinking');
+        $this->cli->passthru('sudo ln -fs /usr/local/etc/oenssl@1.1 /usr/local/etc/openssl');
+
         info("[php@$version] Linking");
         output($this->cli->runAsUser('brew link ' . self::SUPPORTED_PHP_FORMULAE[$version] . ' --force --overwrite'));
 
