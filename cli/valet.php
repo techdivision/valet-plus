@@ -71,7 +71,7 @@ $app->command('fix [--reinstall]', function ($reinstall) {
     }
 
     info('[openssl] Relinking');
-    $this->cli->passthru('sudo ln -fs /usr/local/etc/oenssl@1.1 /usr/local/etc/openssl');
+    $this->cli->passthru('sudo ln -fs /usr/local/etc/openssl@1.1 /usr/local/etc/openssl');
 
     PhpFpm::fix($reinstall);
     Pecl::fix();
