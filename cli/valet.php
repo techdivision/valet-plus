@@ -70,8 +70,12 @@ $app->command('fix [--reinstall]', function ($reinstall) {
         warning('You have an .my.cnf file in your home directory. This can affect the mysql installation negatively.');
     }
 
-    info('[openssl] Relinking');
-    $this->cli->passthru('sudo ln -fs /usr/local/etc/openssl@1.1 /usr/local/etc/openssl');
+    // fix for /usr/local/etc/openssl not present anymore after openssl@1.1 was released and old Formulas have
+    // hardcoded path to /usr/local/etc/openssl
+    if (!is_dir("/usr/local/etc/openssl") && is_dir("/usr/local/etc/openssl@1.1")) {
+        info('[openssl] Relinking openssl@1.1 to openssl in /usr/local/etc');
+        $this->cli->passthru('sudo ln -fs /usr/local/etc/openssl@1.1 /usr/local/etc/openssl');
+    }
 
     PhpFpm::fix($reinstall);
     Pecl::fix();

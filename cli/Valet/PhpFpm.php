@@ -176,8 +176,12 @@ class PhpFpm
         info('[libjpeg] Relinking');
         $this->cli->passthru('sudo ln -fs /usr/local/Cellar/jpeg/8d/lib/libjpeg.8.dylib /usr/local/opt/jpeg/lib/libjpeg.8.dylib');
 
-        info('[openssl] Relinking');
-        $this->cli->passthru('sudo ln -fs /usr/local/etc/openssl@1.1 /usr/local/etc/openssl');
+        // fix for /usr/local/etc/openssl not present anymore after openssl@1.1 was released and old Formulas have
+        // hardcoded path to /usr/local/etc/openssl
+        if (!is_dir("/usr/local/etc/openssl") && is_dir("/usr/local/etc/openssl@1.1")) {
+            info('[openssl] Relinking openssl@1.1 to openssl in /usr/local/etc');
+            $this->cli->passthru('sudo ln -fs /usr/local/etc/openssl@1.1 /usr/local/etc/openssl');
+        }
 
         info("[php@$version] Linking");
         output($this->cli->runAsUser('brew link ' . self::SUPPORTED_PHP_FORMULAE[$version] . ' --force --overwrite'));
