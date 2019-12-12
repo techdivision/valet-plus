@@ -67,12 +67,7 @@ class PhpFpm
             $this->brew->ensureInstalled($this->getFormulaName(self::PHP_V71_VERSION));
         }
 
-        try {
-            $version = $this->linkedPhp();
-        } catch (DomainException $e) {
-            info("[" . $this->getFormulaName(self::PHP_V71_VERSION) . "] Linking");
-            output($this->cli->runAsUser('brew link ' . $this->getFormulaName(self::PHP_V71_VERSION) . ' --force --overwrite'));
-        }
+        $version = $this->linkedPhp();
 
         $this->files->ensureDirExists('/usr/local/var/log', user());
         $this->updateConfiguration();
@@ -175,13 +170,6 @@ class PhpFpm
 
         info('[libjpeg] Relinking');
         $this->cli->passthru('sudo ln -fs /usr/local/Cellar/jpeg/8d/lib/libjpeg.8.dylib /usr/local/opt/jpeg/lib/libjpeg.8.dylib');
-
-        // fix for /usr/local/etc/openssl not present anymore after openssl@1.1 was released and old Formulas have
-        // hardcoded path to /usr/local/etc/openssl
-        if (!is_dir("/usr/local/etc/openssl") && is_dir("/usr/local/etc/openssl@1.1")) {
-            info('[openssl] Relinking openssl@1.1 to openssl in /usr/local/etc');
-            $this->cli->passthru('sudo ln -fs /usr/local/etc/openssl@1.1 /usr/local/etc/openssl');
-        }
 
         info("[php@$version] Linking");
         output($this->cli->runAsUser('brew link ' . self::SUPPORTED_PHP_FORMULAE[$version] . ' --force --overwrite'));
@@ -354,17 +342,7 @@ class PhpFpm
             'php_admin_value[error_log] = ' . VALET_HOME_PATH . '/Log/php.log', $contents);
         $this->files->put($this->fpmConfigPath(), $contents);
 
-        $systemZoneName = readlink('/etc/localtime');
-        // All versions below High Sierra
-        $systemZoneName = str_replace('/usr/share/zoneinfo/', '', $systemZoneName);
-        // macOS High Sierra has a new location for the timezone info
-        $systemZoneName = str_replace('/var/db/timezone/zoneinfo/', '', $systemZoneName);
-        $contents = $this->files->get(__DIR__ . '/../stubs/z-performance.ini');
-        $contents = str_replace('TIMEZONE', $systemZoneName, $contents);
-
-        $iniPath = $this->iniPath();
-        $this->files->ensureDirExists($iniPath, user());
-        $this->files->putAsUser($this->iniPath() . 'z-performance.ini', $contents);
+        $this->writePerformanceConfiguration();
 
         // Get php.ini file.
         $extensionDirectory = $this->pecl->getExtensionDirectory();
@@ -381,6 +359,26 @@ class PhpFpm
 
         // Save php.ini file.
         $this->files->putAsUser($phpIniPath, $contents);
+    }
+
+    function writePerformanceConfiguration() {
+        $path = $this->iniPath() . 'z-performance.ini';
+
+        if(file_exists($path)) {
+            return;
+        }
+
+        $systemZoneName = readlink('/etc/localtime');
+        // All versions below High Sierra
+        $systemZoneName = str_replace('/usr/share/zoneinfo/', '', $systemZoneName);
+        // macOS High Sierra has a new location for the timezone info
+        $systemZoneName = str_replace('/var/db/timezone/zoneinfo/', '', $systemZoneName);
+        $contents = $this->files->get(__DIR__ . '/../stubs/z-performance.ini');
+        $contents = str_replace('TIMEZONE', $systemZoneName, $contents);
+
+        $iniPath = $this->iniPath();
+        $this->files->ensureDirExists($iniPath, user());
+        $this->files->putAsUser($path, $contents);
     }
 
     function checkInstallation()
@@ -474,7 +472,7 @@ class PhpFpm
         }
 
         // If the current php is not 7.1, link 7.1.
-        info('Installing and linking new valet-php version.');
+        info('Installing and linking new PHP homebrew/core version.');
         output($this->cli->runAsUser('brew uninstall ' . self::SUPPORTED_PHP_FORMULAE[self::PHP_V71_VERSION]));
         output($this->cli->runAsUser('brew install ' . self::SUPPORTED_PHP_FORMULAE[self::PHP_V71_VERSION]));
         output($this->cli->runAsUser('brew unlink ' . self::SUPPORTED_PHP_FORMULAE[self::PHP_V71_VERSION]));

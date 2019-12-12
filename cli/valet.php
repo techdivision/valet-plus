@@ -22,7 +22,7 @@ use Symfony\Component\Console\Question\Question;
 Container::setInstance(new Container);
 
 // get current version based on git describe and tags
-$version = new Version('1.7.3' , __DIR__ . '/../');
+$version = new Version('1.7.4' , __DIR__ . '/../');
 
 $app = new Application('Valet+', $version->getVersion());
 
@@ -33,6 +33,15 @@ if (is_dir(VALET_HOME_PATH)) {
     Configuration::prune();
 
     Site::pruneLinks();
+}
+
+/**
+ * fix for /usr/local/etc/openssl not present anymore after openssl@1.1 was released and old Formulas have
+ * hardcoded path to /usr/local/etc/openssl
+ */
+if (!is_dir("/usr/local/etc/openssl") && is_dir("/usr/local/etc/openssl@1.1")) {
+    info('[openssl] Relinking openssl@1.1 to openssl in /usr/local/etc');
+    passthru('sudo ln -fs /usr/local/etc/openssl@1.1 /usr/local/etc/openssl');
 }
 
 /**
@@ -49,7 +58,7 @@ $app->command('install [--with-mariadb]', function ($withMariadb) {
     Binaries::installBinaries();
 
     Configuration::install();
-    Nginx::install();
+    $domain = Nginx::install();
     PhpFpm::install();
     DnsMasq::install();
     Mysql::install($withMariadb ? 'mariadb' : 'mysql@5.7');
@@ -58,6 +67,9 @@ $app->command('install [--with-mariadb]', function ($withMariadb) {
     Nginx::restart();
     Valet::symlinkToUsersBin();
     Mysql::setRootPassword();
+
+    Mailhog::updateDomain($domain);
+    Elasticsearch::updateDomain($domain);
 
     output(PHP_EOL.'<info>Valet installed successfully!</info>');
 })->descriptions('Install the Valet services');
@@ -68,13 +80,6 @@ $app->command('install [--with-mariadb]', function ($withMariadb) {
 $app->command('fix [--reinstall]', function ($reinstall) {
     if (file_exists($_SERVER['HOME'] . '/.my.cnf')) {
         warning('You have an .my.cnf file in your home directory. This can affect the mysql installation negatively.');
-    }
-
-    // fix for /usr/local/etc/openssl not present anymore after openssl@1.1 was released and old Formulas have
-    // hardcoded path to /usr/local/etc/openssl
-    if (!is_dir("/usr/local/etc/openssl") && is_dir("/usr/local/etc/openssl@1.1")) {
-        info('[openssl] Relinking openssl@1.1 to openssl in /usr/local/etc');
-        $this->cli->passthru('sudo ln -fs /usr/local/etc/openssl@1.1 /usr/local/etc/openssl');
     }
 
     PhpFpm::fix($reinstall);
@@ -92,6 +97,9 @@ if (is_dir(VALET_HOME_PATH)) {
         if ($domain === null) {
             return info(Configuration::read()['domain']);
         }
+
+        Mailhog::updateDomain($domain);
+        Elasticsearch::updateDomain($domain);
 
         DnsMasq::updateDomain(
             $oldDomain = Configuration::read()['domain'], $domain = trim($domain, '.')
@@ -284,9 +292,23 @@ if (is_dir(VALET_HOME_PATH)) {
      * Start the daemon services.
      */
     $app->command('start [services]*', function ($services) {
-        if(empty($services)) {
+        $phpVersion = false;
+
+        if (!empty($services)) {
+            // Check if services contains a php version so we can switch to it immediately.
+            $phpVersions = array_keys(\Valet\PhpFpm::SUPPORTED_PHP_FORMULAE);
+            $intersect   = array_intersect($services, $phpVersions);
+            $phpVersion  = end($intersect);
+            $services    = array_diff($services, $phpVersions);
+        }
+
+        if (empty($services)) {
             DnsMasq::restart();
-            PhpFpm::restart();
+            if ($phpVersion) {
+                PhpFpm::switchTo($phpVersion);
+            } else {
+                PhpFpm::restart();
+            }
             Nginx::restart();
             Mysql::restart();
             RedisTool::restart();
@@ -295,6 +317,7 @@ if (is_dir(VALET_HOME_PATH)) {
             RabbitMq::restart();
             Varnish::restart();
             info('Valet services have been started.');
+
             return;
         }
 
@@ -310,7 +333,11 @@ if (is_dir(VALET_HOME_PATH)) {
                     break;
                 }
                 case 'php': {
-                    PhpFpm::restart();
+                    if ($phpVersion) {
+                        PhpFpm::switchTo($phpVersion);
+                    } else {
+                        PhpFpm::restart();
+                    }
                     break;
                 }
                 case 'redis': {

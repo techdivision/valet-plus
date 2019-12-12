@@ -46,6 +46,8 @@ class Nginx
         $this->installConfiguration();
         $this->installServer();
         $this->installNginxDirectory();
+
+        return $this->configuration->read()['domain'];
     }
 
     /**
