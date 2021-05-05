@@ -23,7 +23,7 @@ $uri = urldecode(
 
 $siteName = basename(
     // Filter host to support xip.io feature
-    $_SERVER['HTTP_HOST'],
+    preg_replace('/(\:[0-9]+)$/', '', $_SERVER['HTTP_HOST']),
     '.'.$valetConfig['domain']
 );
 
